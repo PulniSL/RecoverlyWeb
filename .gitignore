@@ -23,3 +23,7 @@ __pycache__/
 # ---- OS ----
 .DS_Store
 Thumbs.db
+
+# allow causal model artifacts
+!services/causal_service/app/ml/artifacts/
+!services/causal_service/app/ml/artifacts/*.pkl
