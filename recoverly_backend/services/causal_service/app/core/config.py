@@ -5,20 +5,14 @@ import os
 # DATABASE CONFIG
 # =========================
 
-DB_HOST = "localhost"
-DB_PORT = 5432
-DB_NAME = "recoverly_platform"
-DB_USER = "causal_user"
-DB_PASSWORD = "Pulni"
-
-DATABASE_URL = (
-    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://causal_user:Pulni@localhost:5432/recoverly_platform"
 )
 
 # =========================
 # AUTH SETTINGS (NEW)
 # =========================
-# IMPORTANT: change this before final submission
 SECRET_KEY = os.getenv("SECRET_KEY", "change_me_now_to_a_long_random_secret")
 ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "60"))
 
