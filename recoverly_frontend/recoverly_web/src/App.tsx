@@ -7,20 +7,31 @@ import ProtectedRoute from "./components/ProtectedRoute";
 export default function App() {
   return (
     <div>
-      <nav style={{
-        background: "#064E3B",
-        color: "white",
-        padding: "14px 0",
-        borderBottom: "1px solid rgba(255,255,255,0.15)"
-      }}>
-        <div className="container" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+      <nav
+        style={{
+          background: "#064E3B",
+          color: "white",
+          padding: "14px 0",
+          borderBottom: "1px solid rgba(255,255,255,0.15)",
+        }}
+      >
+        <div
+          className="container"
+          style={{ display: "flex", alignItems: "center", gap: 18 }}
+        >
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Recoverly</div>
 
-          <Link to="/intake" style={{ color: "white", textDecoration: "none", fontWeight: 600 }}>
+          <Link
+            to="/intake"
+            style={{ color: "white", textDecoration: "none", fontWeight: 600 }}
+          >
             Narrative Intake
           </Link>
 
-          <Link to="/dashboard" style={{ color: "white", textDecoration: "none", fontWeight: 600 }}>
+          <Link
+            to="/dashboard"
+            style={{ color: "white", textDecoration: "none", fontWeight: 600 }}
+          >
             Dashboard
           </Link>
         </div>
@@ -47,8 +58,8 @@ export default function App() {
           }
         />
 
-        <Route path="/" element={<Navigate to="/intake" replace />} />
-        <Route path="*" element={<Navigate to="/intake" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </div>
   );
