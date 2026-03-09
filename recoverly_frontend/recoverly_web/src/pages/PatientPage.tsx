@@ -2,6 +2,74 @@ import { useMemo, useState } from "react";
 import SpeechToText from "../components/SpeechToText";
 import { predict } from "../api/predict";
 
+function normalizeText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function validateNarrative(rawText: string): string | null {
+  const text = normalizeText(rawText);
+  const lower = text.toLowerCase();
+
+  if (!text) {
+    return "Please enter a narrative before analysis.";
+  }
+
+  const blockedExact = new Set([
+    "hi",
+    "hello",
+    "hello world",
+    "test",
+    "testing",
+    "ok",
+    "okay",
+    "thanks",
+    "thank you",
+    "good morning",
+    "good evening",
+    "hey",
+  ]);
+
+  if (blockedExact.has(lower)) {
+    return "No causal factors detected. Please enter a meaningful addiction-related narrative with enough relevant detail for analysis.";
+  }
+
+  const wordCount = text.split(" ").filter(Boolean).length;
+
+  if (wordCount < 6) {
+    return "Narrative is too short. Please enter a more detailed addiction-related narrative for analysis.";
+  }
+
+  const alphaCount = (text.match(/[a-zA-Z]/g) || []).length;
+  if (alphaCount < 12) {
+    return "No causal factors detected. Please enter a meaningful addiction-related narrative with enough relevant detail for analysis.";
+  }
+
+  const uniqueWords = new Set(
+    lower
+      .split(/[^a-zA-Z]+/)
+      .map((w) => w.trim())
+      .filter(Boolean)
+  );
+
+  if (uniqueWords.size < 4) {
+    return "Narrative is not detailed enough for reliable analysis. Please describe the situation in more detail.";
+  }
+
+  const lowValuePatterns = [
+    /^[a-z\s]+$/,
+    /^(hi|hello|hey|ok|okay|test|testing)(\s+(hi|hello|hey|ok|okay|test|testing))*$/i,
+  ];
+
+  if (
+    wordCount <= 8 &&
+    lowValuePatterns.some((pattern) => pattern.test(lower))
+  ) {
+    return "No causal factors detected. Please enter a meaningful addiction-related narrative with enough relevant detail for analysis.";
+  }
+
+  return null;
+}
+
 export default function PatientPage() {
   const [text, setText] = useState("");
   const [result, setResult] = useState<any>(null);
@@ -16,15 +84,22 @@ export default function PatientPage() {
 
   async function analyze() {
     setErr(null);
+
+    const cleanedText = normalizeText(text);
+    const validationError = validateNarrative(cleanedText);
+
+    if (validationError) {
+      setResult(null);
+      setErr(validationError);
+      return;
+    }
+
     try {
       setLoading(true);
       setResult(null);
 
-      // stores to DB in backend
-      const res = await predict(text, "web_user");
+      const res = await predict(cleanedText, "web_user");
       setResult(res);
-
-      // ✅ NO redirect. Stay here and show the individual summary.
     } catch (e: any) {
       setErr(e?.response?.data?.detail || e?.message || "Predict failed");
     } finally {
@@ -38,7 +113,13 @@ export default function PatientPage() {
     setErr(null);
   }
 
-  const topColors = ["#ef4444", "#facc15", "#22c55e"]; // Top1 red, Top2 yellow, Top3 green
+  const topColors = ["#ef4444", "#facc15", "#22c55e"];
+
+  const hasTop3 = Array.isArray(result?.top3) && result.top3.length > 0;
+  const mostImpactful =
+    typeof result?.most_impactful === "string" && result.most_impactful.trim()
+      ? result.most_impactful
+      : "Not available";
 
   return (
     <div className="container">
@@ -65,7 +146,6 @@ export default function PatientPage() {
       )}
 
       <div className="grid">
-        {/* Consent */}
         <div className="card card-pad" style={{ gridColumn: "span 6" }}>
           <h2 style={{ margin: "0 0 10px 0" }}>Consent & Anonymity</h2>
 
@@ -111,7 +191,6 @@ export default function PatientPage() {
           </label>
         </div>
 
-        {/* Input + output */}
         <div className="card card-pad" style={{ gridColumn: "span 6" }}>
           <h2 style={{ margin: "0 0 10px 0" }}>Narrative Input</h2>
 
@@ -139,10 +218,21 @@ export default function PatientPage() {
             onChange={(e) => setText(e.target.value)}
             placeholder={
               consent
-                ? "Describe contributing factors..."
+                ? "Describe contributing factors, triggers, emotions, relationships, or substance-use experiences..."
                 : "Tick consent to enable input."
             }
           />
+
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 13,
+              color: "var(--muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            Enter a meaningful addiction-related narrative. Very short greetings or unrelated text will not be analyzed.
+          </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
             <button
@@ -184,40 +274,46 @@ export default function PatientPage() {
                 }}
               >
                 <div style={{ fontWeight: 900, marginBottom: 12 }}>
-                  Most impactful:{" "}
-                  <span className="badge">{result.most_impactful}</span>
+                  Most impactful: <span className="badge">{mostImpactful}</span>
                 </div>
 
-                {result.top3?.map((item: any, i: number) => {
-                  const pct = Math.round((item.score ?? 0) * 100);
-                  return (
-                    <div key={i} style={{ marginBottom: 14 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ fontWeight: 800 }}>{item.label}</div>
-                        {/* keeping your numeric score (no %) */}
-                        <div style={{ color: "var(--muted)", fontWeight: 800 }}>
-                          {pct}
+                {!hasTop3 ? (
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                    No ranked factors returned for this narrative.
+                  </div>
+                ) : (
+                  result.top3.map((item: any, i: number) => {
+                    const pct = Math.max(0, Math.min(100, Math.round((item.score ?? 0) * 100)));
+                    return (
+                      <div key={i} style={{ marginBottom: 14 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ fontWeight: 800 }}>
+                            {item.label || "Unknown factor"}
+                          </div>
+                          <div style={{ color: "var(--muted)", fontWeight: 800 }}>
+                            {pct}
+                          </div>
+                        </div>
+
+                        <div className="barWrap" style={{ marginTop: 6 }}>
+                          <div
+                            className="bar"
+                            style={{
+                              width: `${pct}%`,
+                              background: topColors[i] || "#22c55e",
+                            }}
+                          />
                         </div>
                       </div>
-
-                      <div className="barWrap" style={{ marginTop: 6 }}>
-                        <div
-                          className="bar"
-                          style={{
-                            width: `${pct}%`,
-                            background: topColors[i],
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
           </div>

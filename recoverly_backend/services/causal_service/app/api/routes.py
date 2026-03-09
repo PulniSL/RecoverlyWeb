@@ -12,7 +12,6 @@ from app.db.models import Prediction, GroupSummary
 from app.ml.whisper_stt import transcribe_audio
 from app.core.config import UPLOAD_DIR, MAX_UPLOAD_MB
 
-# Require counsellor login (NO sessions)
 from app.auth.deps import get_current_counsellor
 from app.db.models import Counsellor
 
@@ -38,8 +37,10 @@ MIME_TO_EXT = {
     "video/3gpp": ".3gp",
 }
 
+
 def _safe_ext(filename: str) -> str:
     return Path(filename).suffix.lower()
+
 
 def _infer_ext(filename: str, content_type: str | None) -> str:
     ext = _safe_ext(filename or "")
@@ -48,6 +49,7 @@ def _infer_ext(filename: str, content_type: str | None) -> str:
     if content_type:
         return MIME_TO_EXT.get(content_type.lower(), "")
     return ""
+
 
 async def _save_upload(file: UploadFile, ext: str) -> Path:
     data = await file.read()
@@ -203,7 +205,6 @@ def predict(
     return {"prediction_id": row.prediction_id, **result}
 
 
-# ✅ UPDATED: return ids too, so frontend can delete real DB rows
 @router.get("/all-patient-narratives")
 def get_all_patient_narratives(
     db: Session = Depends(get_db),
@@ -211,9 +212,22 @@ def get_all_patient_narratives(
 ):
     rows = db.query(Prediction).order_by(Prediction.created_at.desc()).all()
 
-    items = [{"prediction_id": r.prediction_id, "input_text": r.input_text} for r in rows]
+    items = [
+        {
+            "prediction_id": r.prediction_id,
+            "input_text": r.input_text,
+            "most_impactful": r.most_impactful,
+            "top1_label": r.top1_label,
+            "top1_level": r.top1_level,
+            "top2_label": r.top2_label,
+            "top2_level": r.top2_level,
+            "top3_label": r.top3_label,
+            "top3_level": r.top3_level,
+            "created_at": r.created_at.isoformat() if getattr(r, "created_at", None) else None,
+        }
+        for r in rows
+    ]
 
-    # backward compatible
     return {
         "count": len(rows),
         "items": items,
@@ -221,7 +235,6 @@ def get_all_patient_narratives(
     }
 
 
-# ✅ NEW: real delete endpoint
 @router.delete("/narratives/{prediction_id}")
 def delete_narrative(
     prediction_id: int,

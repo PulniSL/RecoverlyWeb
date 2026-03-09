@@ -15,7 +15,18 @@ type DistributionMap = Record<string, number>;
 type NarrativeItem = {
   prediction_id: number;
   input_text: string;
+  most_impactful?: string | null;
 };
+
+function getNarrativeMostImpactful(x: any): string | null {
+  if (!x || typeof x !== "object") return null;
+
+  if (typeof x.most_impactful === "string" && x.most_impactful.trim()) {
+    return x.most_impactful.trim();
+  }
+
+  return null;
+}
 
 function normalizeItems(payload: any): NarrativeItem[] {
   if (!payload) return [];
@@ -26,6 +37,7 @@ function normalizeItems(payload: any): NarrativeItem[] {
       .map((x: any) => ({
         prediction_id: Number(x.prediction_id),
         input_text: String(x.input_text ?? ""),
+        most_impactful: getNarrativeMostImpactful(x),
       }))
       .filter((x: NarrativeItem) => Number.isFinite(x.prediction_id) && x.input_text.length > 0);
   }
@@ -34,6 +46,7 @@ function normalizeItems(payload: any): NarrativeItem[] {
     return payload.narratives.map((t: any, idx: number) => ({
       prediction_id: -1 * (idx + 1),
       input_text: String(t ?? ""),
+      most_impactful: null,
     }));
   }
 
@@ -308,11 +321,15 @@ export default function DashboardPage() {
     doc.text("Individual Patient Narratives (sample)", margin, cursorY);
     cursorY += 10;
 
-    const sampleRows = items.slice(0, 12).map((it, i) => [`#${i + 1}`, it.input_text, topName]);
+    const sampleRows = items.slice(0, 12).map((it, i) => [
+      `#${i + 1}`,
+      it.input_text,
+      it.most_impactful?.trim() || "",
+    ]);
 
     autoTable(doc, {
       startY: cursorY,
-      head: [["Patient", "Narrative", "Top Factor"]],
+      head: [["Patient", "Narrative", "Most Impactful Cause"]],
       body: sampleRows,
       theme: "grid",
       styles: {
